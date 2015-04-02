@@ -2,7 +2,6 @@ root <- '~/makeDMData'
 originalDir<-"~/process-data/data_store/original_data"
 processedDir<-"~/process-data/data_store/processed_data"
 
-
 do <- list(
   data_prep = c(
       'prepSampleNames.R',
