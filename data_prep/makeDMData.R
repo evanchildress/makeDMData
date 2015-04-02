@@ -185,9 +185,6 @@ library(moments)
 library(date) #to get month/day from julian date using date.mdy
 library(data.table)
 
-# data subsetting
-#############################################################################
-
 #choose a species
 #speciesSubset <- 'ATS' 
 speciesSubset <- 'bkt'
