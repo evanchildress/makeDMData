@@ -1,0 +1,4 @@
+library(data.table)
+library(R2jags)
+library(R2WinBUGS)
+library(reshape2)
