@@ -988,14 +988,28 @@ dMData <- addLagged(data = dMData, individual = "tag", time = "sampleNum",
 # dMData <- dMData[ order(dMData$tagNumber,dMData$sampleNum),]   
 # 
 # ##############################################################################
+evalList <- list(firstObsRows=dMData[,which(first==sampleNum)],
+                 nFirstObsRows=dMData[,sum(first==sampleNum)],
+                 lastObsRows=dMData[,which(last==sampleNum)],
+                 nLastObsRows=dMData[,sum(last==sampleNum)],
+                 evalRows=dMData[,which(!is.na(lagDateForEnv) & sampleNum>first)],
+                 nEvalRows=dMData[,sum(!is.na(lagDateForEnv)&sampleNum>first)],
+                 evalJSRows=evalJSRows,nEvalJSRows=nEvalJSRows,#should move the calc for this here
+                 summerObsRows=dMData[,which(season==2)],
+                 nSummerObsRows=dMData[,sum(season==2)],
+                 nonSummerObsRows=dMData[,which(season!=2)],
+                 nNonSummerObsRows=dMData[,sum(season!=2)],
+                 summerAIS=dMData[season==2,unique(ageInSamples)],
+                 nonSummerAIS=dMData[season!=2,unique(ageInSamples)]
+                 )
 
-evalList <- list(firstObsRows=firstObsRows,nFirstObsRows=nFirstObsRows,
-                 lastObsRows=lastObsRows,nLastObsRows=nLastObsRows,
-                 evalRows=evalRows,nEvalRows=nEvalRows,
-                 evalJSRows=evalJSRows,nEvalJSRows=nEvalJSRows,
-                 summerObsRows=summerObsRows,nSummerObsRows=nSummerObsRows,
-                 nonSummerObsRows=nonSummerObsRows, nNonSummerObsRows=nNonSummerObsRows,
-                 summerAIS=summerAIS, nonSummerAIS=nonSummerAIS)
+# evalList <- list(firstObsRows=firstObsRows,nFirstObsRows=nFirstObsRows,
+#                  lastObsRows=lastObsRows,nLastObsRows=nLastObsRows,
+#                  evalRows=evalRows,nEvalRows=nEvalRows,
+#                  evalJSRows=evalJSRows,nEvalJSRows=nEvalJSRows,
+#                  summerObsRows=summerObsRows,nSummerObsRows=nSummerObsRows,
+#                  nonSummerObsRows=nonSummerObsRows, nNonSummerObsRows=nNonSummerObsRows,
+#                  summerAIS=summerAIS, nonSummerAIS=nonSummerAIS)
 
 # means for standardizing
 lengthStd <- tapply(dMData$length,dMData$ageInSamples,mean, na.rm=TRUE)     # need to do this for the SR, so fish in AIS 10,13,14
