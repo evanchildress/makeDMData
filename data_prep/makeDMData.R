@@ -992,7 +992,7 @@ evalList <- list(firstObsRows=dMData[,which(first==sampleNum)],
                  nFirstObsRows=dMData[,sum(first==sampleNum)],
                  lastObsRows=dMData[,which(last==sampleNum)],
                  nLastObsRows=dMData[,sum(last==sampleNum)],
-                 evalRows=dMData[,which(!is.na(lagDateForEnv) & sampleNum>first)],
+                 evalRows=dMData[,which(!is.na(lagDateForEnv))],
                  nEvalRows=dMData[,sum(!is.na(lagDateForEnv)&sampleNum>first)],
                  evalJSRows=evalJSRows,nEvalJSRows=nEvalJSRows,#should move the calc for this here
                  summerObsRows=dMData[,which(season==2)],
