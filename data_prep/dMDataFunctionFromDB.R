@@ -198,12 +198,13 @@ require(data.table)
 # when the name of the object is also a column name using get('objectName',env=execEnv)
 execEnv<-environment()
 
-pheno<-data.table(dbGetQuery(link$conn,"SELECT * FROM data_trout WHERE tag != 'NA';"))
-pheno[,sample_name:=as.numeric(sample_name)]
+pheno<-data.table(dbGetQuery(link$conn,"SELECT * FROM data_corrected_tag_history;"))
+#pheno[,sample_name:=as.numeric(sample_name)]
 
 sampleNames<-readRDS(file.path(processedDir,"sampleNames.rds"))
+sampleNames[,sample_name:=as.character(sample_name)]
 sampleNames<-sampleNames[drainage=='west',list(sample_name,season)]
-sampleNames[sample_name==89,season:="PostSmolt"]
+sampleNames[sample_name=="89",season:="PostSmolt"]
 
 setkey(pheno,sample_name)
 setkey(sampleNames,sample_name)
@@ -211,36 +212,33 @@ setkey(sampleNames,sample_name)
 pheno<-sampleNames[pheno]
 
 #############################################################################
+
+# subset variables for dMData
+# if include fish from cohorts < 1997, they will have ageInSamples that
+#don't go back to 1. for now we are leaving out cohort < 1997
+#when we want to include them, we'll need to augment back to ageInsamples 1
+#bay adding in negative smample numbers
+subsetDMdataCohortMin <- years[1] # >=
+subsetDMdataCohortMax <- years[2] # <=
+
+subsetDMdataAgeInSamples <- 15 # <  
+
+# exclude fish that were captured for the first time after the following ageInSamples
+# set equal to subsetDMdataAgeInSamples - 1 to have no effect 
+maxAgeInSamplesFirstCapt <- subsetDMdataAgeInSamples - 1 #4  0
+
+# this could be specified in the function call, but for now it's just set up for west brook
 if (species == 'ats'  ) {
   riverSubset <- tolower(c('WEST BROOK'))#,'WB JIMMY') #,'WB MITCHELL',"WB OBEAR") 
   #riverSubset <- c("SHOREY BROOK") # "SAWMILL RIVER","WB JIMMY","WB OBEAR", "WB MITCHELL", "CATAMARAN BROOK", 
   #riverSubset <- c("SAWMILL RIVER")
   areaSubset <- tolower(c('INSIDE', 'ABOVE', 'BELOW'))#, 'TRIB' ) 
-  
-  # subset variables for dMData
-  # if include fish from cohorts < 1997, they will have ageInSamples that
-  #don't go back to 1. for now we are leaving out cohort < 1997
-  #when we want to include them, we'll need to augment back to ageInsamples 1
-  #bay adding in negative smample numbers
-  subsetDMdataCohortMin <- 1996 # >=
-  subsetDMdataCohortMax <- 2014 # <=
-  subsetDMdataAgeInSamples <- 15 # <  
-  
-  # exclude fish that were captured for the first time after the following ageInSamples
-  # set equal to subsetDMdataAgeInSamples - 1 to have no effect
-  maxAgeInSamplesFirstCapt <- subsetDMdataAgeInSamples - 1 #subsetDMdataAgeInSamples - 1 #4  
+
 }
 
 if (species %in% c('bkt','bnt')) {
   riverSubset <- tolower(c('WEST BROOK','WB JIMMY','WB MITCHELL',"WB OBEAR")) 
   areaSubset <- tolower(c('INSIDE', 'ABOVE', 'BELOW', 'TRIB','ABOVE ABOVE','aboveabove','BELOW BELOW' )) 
-  
-  subsetDMdataCohortMin <- 1997 # >=
-  subsetDMdataCohortMax <- 2014 # <=
-  
-  subsetDMdataAgeInSamples <- 15 # <  
-  
-  maxAgeInSamplesFirstCapt <- subsetDMdataAgeInSamples - 1 #4  
 }
 
 # columns to include in  pheno2LongList

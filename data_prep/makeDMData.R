@@ -214,8 +214,8 @@ if (speciesSubset == 'bkt' | speciesSubset == 'bnt'  ) {
   riverSubset <- tolower(c('WEST BROOK','WB JIMMY','WB MITCHELL',"WB OBEAR")) 
   areaSubset <- tolower(c('INSIDE', 'ABOVE', 'BELOW', 'TRIB','ABOVE ABOVE','aboveabove','BELOW BELOW' )) 
   
-  subsetDMdataCohortMin <- 2002 # >=
-  subsetDMdataCohortMax <- 2014 # <=
+  subsetDMdataCohortMin <- 1996 # >=
+  subsetDMdataCohortMax <- 2020 # <=
   
   subsetDMdataAgeInSamples <- 15 # <  
   
@@ -1097,7 +1097,7 @@ file.copy(from='./makeDMData.R', to=paste(directory,'makeDMData.R',sep='/'))
 writeLines(text=directory, con='./latest_directory')
 print(directory)
 
-fileName <- paste('dMDataOut',speciesSubset,subsetDMdataCohortMin,'_', subsetDMdataCohortMax,'.RData', sep='')
+fileName <- paste('dMDataOut',speciesSubset,'.RData', sep='')
 
 #save.image(paste(directory,fileName, sep=''))
 save(dMData, evalList, stdList, stdList_cohort, statsForN,
