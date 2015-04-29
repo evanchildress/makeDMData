@@ -174,10 +174,10 @@
 
 #############################################################################
 
-makeDMData<-function(species,
-                     years,
-                     link=db_connector("~/wb_credentials.rds"),
-                     processedDir="~/process-data/data_store/processed_data"
+makeDMData<-function(species, #specify a species (one of 'ats','bkt','bnt')
+                     cohorts, #specify the min and max cohort to include e.g., c(1996,2014)
+                     dbCredentials="~/wb_credentials.rds", #provides link to database
+                     processedDir="~/process-data/data_store/processed_data" #directory to write to and that holds sampleNames for season definition
                      ){
 #library(ecoPiffle) #is this necessary?
 require(RPostgreSQL)
@@ -193,12 +193,16 @@ require(moments)
 require(date) #to get month/day from julian date using date.mdy
 require(data.table)
 
+link=db_connector(dbCredentials)
 
 #store the function's execution environment to enable calls to objects within a data.table
 # when the name of the object is also a column name using get('objectName',env=execEnv)
 execEnv<-environment()
 
 pheno<-data.table(dbGetQuery(link$conn,"SELECT * FROM data_corrected_tag_history;"))
+setnames(pheno,c("detection_date","observed_length"),c("date","measured_length"))
+pheno[,cohort:=cohortEstimated]
+pheno[,cohortEstimated:=NULL]
 #pheno[,sample_name:=as.numeric(sample_name)]
 
 sampleNames<-readRDS(file.path(processedDir,"sampleNames.rds"))
@@ -218,8 +222,8 @@ pheno<-sampleNames[pheno]
 #don't go back to 1. for now we are leaving out cohort < 1997
 #when we want to include them, we'll need to augment back to ageInsamples 1
 #bay adding in negative smample numbers
-subsetDMdataCohortMin <- years[1] # >=
-subsetDMdataCohortMax <- years[2] # <=
+subsetDMdataCohortMin <- cohorts[1] # >=
+subsetDMdataCohortMax <- cohorts[2] # <=
 
 subsetDMdataAgeInSamples <- 15 # <  
 
@@ -244,33 +248,36 @@ if (species %in% c('bkt','bnt')) {
 # columns to include in  pheno2LongList
 pheno2LongList <- c('tag','sample_name','sampleNumAdjConsec',
                     'river','cohort','species',
-                    'season','age','measured_length','measured_weight',
+                    'season','age','measured_length',
                     'section',
-                    'sex','mature01','everMat01',
+                    #'sex','mature01','everMat01','measured_weight',
                     'date','medianDate','area', 'riverN'
 )
 # columns to include in  pheno2LongList - need to update 'names' on next line
-dMDataList <-  c('tag','sample_name','sampleNumAdjConsec','measured_length','measured_weight','mature01','section',
-                 'enc', 'river', 'speciesConsec',
+dMDataList <-  c('tag','sample_name','sampleNumAdjConsec','measured_length',
+                 'section','enc', 'river', 'speciesConsec',
                  'seasonConsec','ageConsec','ageInSamplesConsec',
                  'yearConsec',
                  'gtFirstOcc','firstConsec','lastConsec','cohortConsec',
                  'date','medianDate',
-                 'everMat01Consec','area', 'riverN','sex','emPerm'
+                 'area', 'riverN','emPerm'
+                 #,'mature01','everMat01Consec''measured_weight','sex'
 )
 
-dMDataNames <- c('tag','sampleName','sampleNum','length','weight','mature01','section','enc', 'river',
+dMDataNames <- c('tag','sampleName','sampleNum','length',
+                 'section','enc', 'river',
                  'species','season','age','ageInSamples',
                  'year',
                  'gtFirstOcc','first','last','cohort',
                  'date','medianDate',
-                 'everMat01','area', 'riverN','sex','emPerm'
+                 'area', 'riverN','emPerm'#,'everMat01','mature01','sex','weight'
 )                  
 
 #############################################################################
-pheno <- pheno[season!="Summer"]    #get rid of the two summer obs
+emigration<-pheno[sample_name %in% c("antenna_detection","trap")]
+pheno <- pheno[season!="Summer" & !is.na(season)]    #get rid of the two summer obs and emigration detections
 pheno[,season:=as.numeric(factor(pheno$season,levels=c("PreSmolt","PostSmolt","Fall","PreWinter"), ordered=T))]
-#MAKE SURE there are only 4 seasons - otherwise numbering gets screwed up  when merging on season
+pheno[,sample_name:=as.numeric(sample_name)]
 
 pheno[,medianDate:=median(date),by=sample_name]
 
@@ -279,8 +286,8 @@ pheno[,julian:=as.numeric(format(date,"%j"))]
 pheno[,age:=year-cohort]
 pheno[,daysOld:=julian + age * 365]
 
-pheno[,mature01 := ifelse(maturity %in% c('p','m','f'),1,0)]
-pheno[,everMat01:=max(mature01),by=tag]
+# pheno[,mature01 := ifelse(maturity %in% c('p','m','f'),1,0)]
+# pheno[,everMat01:=max(mature01),by=tag]
 
 pheno$riverN<-as.numeric(factor(pheno$river))  #Jimmy 1, Mitchell 2, WB 3
 
@@ -288,6 +295,7 @@ pheno$riverN<-as.numeric(factor(pheno$river))  #Jimmy 1, Mitchell 2, WB 3
 pheno[sample_name == 41.8,sample_name:=42 ]
 
 # get rid of duplicate tags on the same occasion
+setkey(pheno,tag,sample_name)
 pheno <- pheno[ !duplicated(pheno[,list(tag,sample_name)]), ]
 
 ##########################
@@ -302,11 +310,10 @@ pheno2 <- pheno[species %in% get('species',env=execEnv) & river %in% riverSubset
 # Generate data to set up long data format
 #############################################################################
 firstYear <- min(pheno2$year)
-firstSeason <- min(pheno2$sample_name)
+firstSample <- min(pheno2$sample_name)
 
 lastYear <- max(pheno2$year)
-#lastSeason is wrong, but doesn't get used below
-lastSeason <- max(pheno2$sample_name)
+lastSample <- max(pheno2$sample_name)
 
 # set up template for all possible samples
 yearSeasonList <- as.data.frame(matrix(NA,(lastYear-firstYear+1)*4,2))
@@ -445,7 +452,7 @@ boundaryDetections<-boundaryDetections[,list(lastBoundaryDetection=max(detection
 setkey(boundaryDetections,tag)
 
 byTag<- unique(pheno2[,list(cohortConsec=cohort,
-                            everMat01Consec=everMat01,
+                            #everMat01Consec=everMat01,
                             speciesConsec=species,
                             firstConsec=min(sampleNumAdjConsec,na.rm=T),
                             lastConsec=max(sampleNumAdjConsec,na.rm=T),
@@ -502,8 +509,14 @@ nOcc <- max(yearSeasonList3$sampleNumAdjConsec)
 
 # fish are not available when they are too old                        ##or if they have emigrated
 # fish are not available before first capture
+if(modelType='cjs'){
+pheno2Long[,available:=(ageInSamplesConsec < subsetDMdataAgeInSamples &
+                          sampleNumAdjConsec >=firstConsec)-0]
+}
 
-pheno2Long[,available:=(ageInSamplesConsec < subsetDMdataAgeInSamples & sampleNumAdjConsec >=firstConsec)-0]
+if(modelType='js'){
+  pheno2Long[,available:=(ageInSamplesConsec < subsetDMdataAgeInSamples) -0]
+}
 
 # delete fish that were seen for the first time after subsetDMdataAgeInSamples
 tooOld <- unique(pheno2Long[ seasonConsec==firstConsec & ageInSamplesConsec > subsetDMdataAgeInSamples, tag ])
@@ -794,14 +807,14 @@ nonSummerAIS <- occasions$ageInSamples[occasions$season != 2]
 #create an age in maturity years to group by
 dMData[,ageGroup:=floor(ageInSamples/4)]
 
-#assign matNA based on above criteria
-dMData[ageGroup>0,bla:=ifelse(any(mature01==1,na.rm=T),
-                              1,
-                              ifelse(length(which(season==3))==0,
-                                     as.numeric(NA),
-                                     mature01[which(season==3)])),
-       by=list(tag,ageGroup)]
-dMData[,ageGroup:=NULL]
+# #assign matNA based on above criteria
+# dMData[ageGroup>0,bla:=ifelse(any(mature01==1,na.rm=T),
+#                               1,
+#                               ifelse(length(which(season==3))==0,
+#                                      as.numeric(NA),
+#                                      mature01[which(season==3)])),
+#        by=list(tag,ageGroup)]
+# dMData[,ageGroup:=NULL]
 
 #Remove any maturity indicators that are not summer
 dMData[season!=2,bla:=NA]
@@ -951,7 +964,7 @@ dMData[,riverConsec:=ifelse(sampleNum < first,
 
 #######Add lagged versions of key variables##############################
 dMData <- addLagged(data = dMData, individual = "tag", time = "sampleNum", 
-                    lag = c("sampleNum","riverN","length","weight","date"))   
+                    lag = c("sampleNum","riverN","length","date"))   
 #########################################################################
 
 ###################I'm not sure what addEnvironmentalData2 does..
