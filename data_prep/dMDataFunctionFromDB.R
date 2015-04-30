@@ -1,58 +1,21 @@
+makeDMData<-function(species='bkt', 
+                     cohorts=c(1996,2014),
+                     studyYears = c(2000,2014),
+                     modelType = 'cjs',
+                     dbCredentials="~/wb_credentials.rds", 
+                     processedDir="~/process-data/data_store/processed_data" 
+){
+
+# species:    specify a species (one of 'ats','bkt','bnt')
+# cohorts:    specify the min and max cohort to include e.g., c(1996,2014)
+# studyYears: just cuts off samples not in the period of interest
+# modelType: currently set up for either 'js' or 'cjs'
+#  cjs cuts off anything prior to first observations whereas
+#  js includes everything back to studyYears[1]
+# dbCredentials: to construct link to the database
+# processedDir: directory to write to and that holds sampleNames for season definition 
+
 ##########################################################################
-# File location on felek: /var/lib/data/share
-#
-# Files to update on felek before running this file:
-#
-# fourRiversAllSpp.txt
-# file created using access file query  fourRiversAllSpp:fourRivers query
-# in C:\PITTAGMAIN\CMR Analyses\Hierach_Bugs\allSpp\fourRiversAllSpp.mdb
-# export query as text file without formatting, include names on first row
-# copy fourRiversAllSpp.txt to felek (home/ben/allSpp)
-
-# adjSampNums.csv 
-# right now, median dates are based on WB only. probably should incude tribs in dates
-#      make sure to udpate alignedDates.csv and medianSampleDates.csv in C:\PITTAGMAIN\CMR Analyses\adjustedDates
-#        1) update by copying new sample rows from fourRiversAllSpp:Median Date for Each Sample Table and pasting into medianSampleDates.csv
-#           will need to copy and paste and delete the river columns before pasting
-#        2) rerun sampleDates.r 
-#        3) copy adjSampNums.csv to felek (home/ben/allSpp/adjustedDates)
-
-# envData.txt 
-# file created using access file query  fourRiversAllSpp:envData query
-# in C:\PITTAGMAIN\CMR Analyses\Hierach_Bugs\allSpp
-# export query as text file without formatting, include names on first row
-# copy to felek home/ben/allSpp
-
-# smolttrapFourRiversAllSpp.txt
-# file created using access file query  fourRiversAts:smoltTrapfourRiversAts query
-# in C:\PITTAGMAIN\CMR Analyses\Hierach_Bugs\allSpp
-#export query as text file without formatting
-
-# antennaTribs.txt
-# in C:\PITTAGMAIN\CMR Analyses\Hierach_Bugs\allSpp fourRiversAllSpp:antennaTribs query
-# export query as text file without formatting
-# then copy to felek home/ben/allSpp
-
-# antennaDuda.txt
-# file created using access file query  fourRiversAts:antennaDuda query
-# in C:\PITTAGMAIN\CMR Analyses\Hierach_Bugs\allSpp
-#export query as text file without formatting
-# then copy to felek home/ben/allSpp
-
-# yoySizeLimits
-# file made with query of yoy size limits
-# file created using access file query  fourRiversAllSpp:stockYearBySizeClasses query
-# in C:\PITTAGMAIN\CMR Analyses\Hierach_Bugs\allSpp\fourRiversAllSpp.mdb
-# run query [stockYearBySizeClasses], export and copy to
-#'/data/projects/jwpcenter/bayesian/allSpp/stockYearBySizeClasses.txt'
-# update any visual fixes to the size limits in callMSRiverP.R on Denver computer
-
-# unsampled rivers
-# update propSampledDATA and zeroSectionsDATA in callMSRiverP.R for unsampled rivers/years
-
-#
-#############################################################################
-#############################################################################
 # Things to be careful of
 # 1. Make sure all the samples that need to included in dMdata are in adjDates 
 
@@ -174,11 +137,7 @@
 
 #############################################################################
 
-makeDMData<-function(species, #specify a species (one of 'ats','bkt','bnt')
-                     cohorts, #specify the min and max cohort to include e.g., c(1996,2014)
-                     dbCredentials="~/wb_credentials.rds", #provides link to database
-                     processedDir="~/process-data/data_store/processed_data" #directory to write to and that holds sampleNames for season definition
-                     ){
+
 #library(ecoPiffle) #is this necessary?
 require(RPostgreSQL)
 require(lubridate)
@@ -195,12 +154,16 @@ require(data.table)
 
 link=db_connector(dbCredentials)
 
-#store the function's execution environment to enable calls to objects within a data.table
-# when the name of the object is also a column name using get('objectName',env=execEnv)
+#store the function's execution environment to 
+#  enable calls to objects within a data.table
+#  when the name of the object is also a column 
+#  name using get('objectName',env=execEnv)
 execEnv<-environment()
 
-pheno<-data.table(dbGetQuery(link$conn,"SELECT * FROM data_corrected_tag_history;"))
-setnames(pheno,c("detection_date","observed_length"),c("date","measured_length"))
+pheno<-data.table(dbGetQuery(link$conn,
+                  "SELECT * FROM data_corrected_tag_history;"))
+setnames(pheno,c("detection_date","observed_length"),
+               c("date",          "measured_length"))
 pheno[,cohort:=cohortEstimated]
 pheno[,cohortEstimated:=NULL]
 #pheno[,sample_name:=as.numeric(sample_name)]
@@ -227,14 +190,18 @@ subsetDMdataCohortMax <- cohorts[2] # <=
 
 subsetDMdataAgeInSamples <- 15 # <  
 
-# exclude fish that were captured for the first time after the following ageInSamples
+# exclude fish that were captured for the first time after the
+# following ageInSamples
 # set equal to subsetDMdataAgeInSamples - 1 to have no effect 
 maxAgeInSamplesFirstCapt <- subsetDMdataAgeInSamples - 1 #4  0
 
-# this could be specified in the function call, but for now it's just set up for west brook
+# this could be specified in the function call, but for now it's just 
+#  set up for west brook
 if (species == 'ats'  ) {
-  riverSubset <- tolower(c('WEST BROOK'))#,'WB JIMMY') #,'WB MITCHELL',"WB OBEAR") 
-  #riverSubset <- c("SHOREY BROOK") # "SAWMILL RIVER","WB JIMMY","WB OBEAR", "WB MITCHELL", "CATAMARAN BROOK", 
+  riverSubset <- tolower(c('WEST BROOK'))#,'WB JIMMY') 
+  #,'WB MITCHELL',"WB OBEAR") 
+  #riverSubset <- c("SHOREY BROOK") 
+  # "SAWMILL RIVER","WB JIMMY","WB OBEAR", "WB MITCHELL", "CATAMARAN BROOK", 
   #riverSubset <- c("SAWMILL RIVER")
   areaSubset <- tolower(c('INSIDE', 'ABOVE', 'BELOW'))#, 'TRIB' ) 
 
@@ -242,7 +209,8 @@ if (species == 'ats'  ) {
 
 if (species %in% c('bkt','bnt')) {
   riverSubset <- tolower(c('WEST BROOK','WB JIMMY','WB MITCHELL',"WB OBEAR")) 
-  areaSubset <- tolower(c('INSIDE', 'ABOVE', 'BELOW', 'TRIB','ABOVE ABOVE','aboveabove','BELOW BELOW' )) 
+  areaSubset <- tolower(c('INSIDE', 'ABOVE', 'BELOW', 'TRIB','ABOVE ABOVE',
+                          'aboveabove','BELOW BELOW' )) 
 }
 
 # columns to include in  pheno2LongList
@@ -270,13 +238,18 @@ dMDataNames <- c('tag','sampleName','sampleNum','length',
                  'year',
                  'gtFirstOcc','first','last','cohort',
                  'date','medianDate',
-                 'area', 'riverN','emPerm'#,'everMat01','mature01','sex','weight'
+                 'area', 'riverN','emPerm'
+                 #,'everMat01','mature01','sex','weight'
 )                  
 
 #############################################################################
 emigration<-pheno[sample_name %in% c("antenna_detection","trap")]
-pheno <- pheno[season!="Summer" & !is.na(season)]    #get rid of the two summer obs and emigration detections
-pheno[,season:=as.numeric(factor(pheno$season,levels=c("PreSmolt","PostSmolt","Fall","PreWinter"), ordered=T))]
+
+#get rid of the two summer obs and emigration detections
+pheno <- pheno[season!="Summer" & !is.na(season)]
+pheno[,season:=as.numeric(factor(pheno$season,
+               levels=c("PreSmolt","PostSmolt","Fall","PreWinter"),
+               ordered=T))]
 pheno[,sample_name:=as.numeric(sample_name)]
 
 pheno[,medianDate:=median(date),by=sample_name]
@@ -291,7 +264,8 @@ pheno[,daysOld:=julian + age * 365]
 
 pheno$riverN<-as.numeric(factor(pheno$river))  #Jimmy 1, Mitchell 2, WB 3
 
-#rename wB sample 41.8 to 42. 42 was a sampleComple==NO, but there are equivalent samples in the other rivers
+#rename wB sample 41.8 to 42. 42 was a sampleComple==NO, 
+# but there are equivalent samples in the other rivers
 pheno[sample_name == 41.8,sample_name:=42 ]
 
 # get rid of duplicate tags on the same occasion
@@ -304,15 +278,17 @@ pheno <- pheno[ !duplicated(pheno[,list(tag,sample_name)]), ]
 
 #############################################################################
 # subset species,river, and area                                                            
-pheno2 <- pheno[species %in% get('species',env=execEnv) & river %in% riverSubset & area %in% areaSubset]
+pheno2 <- pheno[species %in% get('species',env=execEnv) &
+                river   %in% riverSubset &
+                area    %in% areaSubset]
 
 #############################################################################
 # Generate data to set up long data format
 #############################################################################
-firstYear <- min(pheno2$year)
+firstYear   <- min(pheno2$year)
 firstSample <- min(pheno2$sample_name)
 
-lastYear <- max(pheno2$year)
+lastYear   <- max(pheno2$year)
 lastSample <- max(pheno2$sample_name)
 
 # set up template for all possible samples
@@ -348,33 +324,39 @@ yearSeasonList2 <- data.table(merge(
 
 # fill in NAs for sampleNumAdj. Happens when species=ATS for winter samples
 #just hard-coding this for now. sample #s will always line up w year/season
-yearSeasonList2[year==2005 & season==4,sample_name:=55]  # will need to add this back in if run for multiple drainages at once
-yearSeasonList2[year==2002 & season==4,sample_name:=42] # don't seem to need first and last (2005,2007), but do need this one (2002)'
+yearSeasonList2[year==2005 & season==4,sample_name:=55]
+yearSeasonList2[year==2002 & season==4,sample_name:=42]
 yearSeasonList2[year==2007 & season==4,sample_name:=63]
 
 
 
-#get rid of ANY unsampled samples - if left in, trailing NA sampleNumAdj screw up evalRows [1/12/2012]
+#get rid of ANY unsampled samples - if left in, 
+# trailing NA sampleNumAdj screw up evalRows [1/12/2012]
 yearSeasonList2 <- yearSeasonList2[ !is.na(sample_name), ] 
 
 yearSeasonList2$sampleNumAdjConsec <- 1:nrow(yearSeasonList2)
 
 ##################################################
-# add preceding sampleNums so old fish caught early can be augmented back before the study started
+# add preceding sampleNums so old fish caught early can be augmented 
+#  back before the study started
 ##################################################
-firstYear <- (yearSeasonList2$year)[1]
-firstSeason <-(yearSeasonList2$season)[1]
-numOccAug <- subsetDMdataAgeInSamples - 1 
+firstYear   <- (yearSeasonList2$year)[1]
+firstSeason <- (yearSeasonList2$season)[1]
+numOccAug   <- subsetDMdataAgeInSamples - 1 
 
 augBack <- as.data.frame(matrix(NA,numOccAug,ncol(yearSeasonList2)))
 names(augBack) <- names(yearSeasonList2)
-augBack$sampleNumAdjConsec <- seq(-(numOccAug-1),0) # -1 to account for sampleNumConsec==0
+
+augBack$sampleNumAdjConsec <- seq(-(numOccAug-1),0) 
+# -1 to account for sampleNumConsec==0
 
 augBack$season[nrow(augBack)] <- firstSeason - 1
 if (augBack$season[nrow(augBack)] == 0) augBack$season[nrow(augBack)] <- 4 
 
 augBack$year[nrow(augBack)] <- firstYear - 0
-if (augBack$season[nrow(augBack)] == 4) augBack$year[nrow(augBack)] <- firstYear - 1 
+if (augBack$season[nrow(augBack)] == 4){
+  augBack$year[nrow(augBack)] <- firstYear - 1 
+}
 
 for ( i in (numOccAug - 1) : 1 ){
   augBack$season[i] <- augBack$season[i+1] - 1
@@ -412,8 +394,10 @@ template <- data.table( tag=tagNumTemplate, sampleNumAdjConsec=sampNumTemplate)
 #pheno2$sampleNumConsec) <- 'sampleNumAdjConsec'
 
 pheno2<-pheno2[ , pheno2LongList,with=F ]
-setkey(pheno2,tag,sampleNumAdjConsec)
-setkey(template,tag,sampleNumAdjConsec)
+
+setkey(pheno2,   tag, sampleNumAdjConsec)
+setkey(template, tag, sampleNumAdjConsec)
+
 pheno2Long <- pheno2[template]
 
 pheno2Long$enc <- ifelse(is.na(pheno2Long$sample_name),0,1)
@@ -432,9 +416,9 @@ sampleToYear <- unique(yearSeasonList3[,list(sampleNumAdjConsec,year)])
 #sort by sampleNumAdj - otherwise yearsMatrix is out of order
 #sampleToYear <- sampleToYear[ order(sampleToYear$sampleNumAdjConsec), ]
 
-sampleTo <- data.table(sampleNumAdjConsec=sampleToSeason$sampleNumAdjConsec,
-                       seasonConsec=sampleToSeason$season,
-                       yearConsec=sampleToYear$year)
+sampleTo <- data.table(sampleNumAdjConsec = sampleToSeason$sampleNumAdjConsec,
+                       seasonConsec       = sampleToSeason$season,
+                       yearConsec         = sampleToYear$year)
 
 pheno2Long <- merge(
   x = pheno2Long, y = sampleTo,
@@ -447,18 +431,28 @@ pheno2Long <- merge(
 ##############################################################################
 # variables that don't change within fish
 ##############################################################################
-boundaryDetections<-data.table(dbGetQuery(link$conn,"SELECT * FROM data_boundary_detections;"))
-boundaryDetections<-boundaryDetections[,list(lastBoundaryDetection=max(detection_date)),by=tag]
+boundaryDetections<-data.table(dbGetQuery(link$conn,
+                    "SELECT * FROM data_boundary_detections;"))
+boundaryDetections<-boundaryDetections[,list(
+                    lastBoundaryDetection=max(detection_date)),
+                    by=tag]
+
 setkey(boundaryDetections,tag)
 
-byTag<- unique(pheno2[,list(cohortConsec=cohort,
-                            #everMat01Consec=everMat01,
-                            speciesConsec=species,
-                            firstConsec=min(sampleNumAdjConsec,na.rm=T),
-                            lastConsec=max(sampleNumAdjConsec,na.rm=T),
-                            firstDate=min(date,na.rm=T),
-                            lastDate=max(date,na.rm=T)),by=tag])
-if(sum(duplicated(byTag$tag))){stop('duplicate tag numbers created when making byTag, which includes variables that do not vary by tag')}
+byTag<- unique(pheno2[,list(cohortConsec     = cohort,
+                            #everMat01Consec = everMat01,
+                            speciesConsec    = species,
+                            firstConsec      = min(sampleNumAdjConsec,na.rm=T),
+                            lastConsec       = max(sampleNumAdjConsec,na.rm=T),
+                            firstDate        = min(date,na.rm=T),
+                            lastDate         = max(date,na.rm=T)),
+                      by=tag])
+
+if(sum(duplicated(byTag$tag))){
+  stop('duplicate tag numbers created when making byTag, 
+       which includes variables that do not vary by tag')
+}
+
 setkey(byTag,tag)
 byTag<-boundaryDetections[byTag]
 
@@ -476,7 +470,7 @@ pheno2Long[,ageInSamplesConsec:=4*(ageConsec-1) + 2 + seasonConsec]
 # delete fish that were caught for the first time too old
 byTag[,notTooOld:=
         pheno2Long[sampleNumAdjConsec == firstConsec ,
-                   ageInSamplesConsec<=maxAgeInSamplesFirstCapt,
+                   ageInSamplesConsec <= maxAgeInSamplesFirstCapt,
                    by=tag]$V1]
 pheno2Long <- pheno2Long[tag %in% byTag[notTooOld==TRUE,tag]]
 
@@ -487,39 +481,48 @@ setkey(pheno2Long,tag,sampleNumAdjConsec)
 
 # #########################################################################
 # ### Create indicator of permanent emigration 
-# ### (defined as last observation at boundary antenna {should this include outside?})
+# ### (defined as last observation at boundary antenna #
+# {should this include outside?})
 # ### using the antenna data
-pheno2Long[,medianDateSampleNum:=median(date,na.rm=T),
-           by=sampleNumAdjConsec]
+pheno2Long[,medianDateSampleNum := median(date,na.rm=T),
+            by=sampleNumAdjConsec]
 
 pheno2Long[is.na(lastBoundaryDetection) | 
-             lastDate>lastBoundaryDetection |
-             medianDateSampleNum > lastBoundaryDetection,emPerm:=0]
+             lastDate            > lastBoundaryDetection |
+             medianDateSampleNum > lastBoundaryDetection,
+           emPerm:=0]
 pheno2Long[is.na(emPerm),
-           emPerm:=ifelse(sampleNumAdjConsec==max(sampleNumAdjConsec),1,0),
+           emPerm:=ifelse(sampleNumAdjConsec == max(sampleNumAdjConsec),1,0),
            by=tag]
 pheno2Long[,emigrated:=ifelse(any(emPerm==1),
                               as.numeric(date>date[which(emPerm==1)]),
-                              0),by=tag]
+                              0),
+           by=tag]
 
 ##############################################################################
 # prepare to create availability column
 ##############################################################################
 nOcc <- max(yearSeasonList3$sampleNumAdjConsec)
 
-# fish are not available when they are too old                        ##or if they have emigrated
+# fish are not available when they are too old                        
+##or if they have emigrated
 # fish are not available before first capture
-if(modelType='cjs'){
-pheno2Long[,available:=(ageInSamplesConsec < subsetDMdataAgeInSamples &
-                          sampleNumAdjConsec >=firstConsec)-0]
+if(modelType=='cjs'){
+pheno2Long[,available:=(ageInSamplesConsec <  subsetDMdataAgeInSamples &
+                        sampleNumAdjConsec >= firstConsec)-0]
 }
 
-if(modelType='js'){
-  pheno2Long[,available:=(ageInSamplesConsec < subsetDMdataAgeInSamples) -0]
+if(modelType=='js'){
+  pheno2Long[,available:=(ageInSamplesConsec < subsetDMdataAgeInSamples &
+                          yearConsec > studyYears[1]) -0]
+  
 }
 
 # delete fish that were seen for the first time after subsetDMdataAgeInSamples
-tooOld <- unique(pheno2Long[ seasonConsec==firstConsec & ageInSamplesConsec > subsetDMdataAgeInSamples, tag ])
+tooOld <- unique(pheno2Long[ seasonConsec       == firstConsec &
+                             ageInSamplesConsec >  subsetDMdataAgeInSamples,
+                            tag ])
+
 pheno2Long <- pheno2Long[ !(tag %in% tooOld) ]
 
 pheno2Long[sampleNumAdjConsec<1,available:=0]
@@ -536,8 +539,9 @@ dMData <- pheno2Long[available==1,dMDataList,with=F]
 
 # dMDataList names defined up top
 setnames(dMData, dMDataNames)
-dMData<-dMData[cohort >= subsetDMdataCohortMin & cohort <= subsetDMdataCohortMax &
-                 ageInSamples < subsetDMdataAgeInSamples]
+dMData<-dMData[cohort       >= subsetDMdataCohortMin &
+               cohort       <= subsetDMdataCohortMax &
+               ageInSamples <  subsetDMdataAgeInSamples]
 
 ##############################################################################
 #add in proportion of sections sampled 
@@ -573,13 +577,18 @@ envData[,date:=as.Date(date_ct)]
 
 #need to add medianDate and lagMedianDate to row for which fish were not caught
 # fill in median dates for samples with no data (e.g winters)
-medianDateListForMissing<-dMData[enc==1,list(min(date,na.rm=T),max(date,na.rm=T),median(date,na.rm=T)),by=sampleNum]
-setnames(medianDateListForMissing,c("sampleNum","minDate","maxDate","medianDateSampleNum"))
-medianDateListForMissing[,c("minJulian","maxJulian","medianJulian","year"):=list(
-  as.numeric(format(minDate,"%j")),
-  as.numeric(format(maxDate,"%j")),
-  as.numeric(format(medianDateSampleNum,"%j")),
-  as.numeric(format(medianDateSampleNum,"%Y")))]
+medianDateListForMissing<-dMData[enc==1,
+                                 list(min(    date , na.rm=T),
+                                      max(    date , na.rm=T),
+                                      median( date , na.rm=T)),
+                                 by=sampleNum]
+setnames(medianDateListForMissing,
+         c("sampleNum","minDate","maxDate","medianDateSampleNum"))
+medianDateListForMissing[,c("minJulian","maxJulian","medianJulian","year"):=
+                           list(as.numeric(format(minDate,"%j")),
+                                as.numeric(format(maxDate,"%j")),
+                                as.numeric(format(medianDateSampleNum,"%j")),
+                                as.numeric(format(medianDateSampleNum,"%Y")))]
 
 
 # saving for antennaDuda.r, so we can make graphs of antenna data
@@ -604,44 +613,53 @@ getMeanDuringSample<-function(sample,type,river){
 
 medianDateListForMissing[,c("tempDuringOccSampDays","dischDuringOccSampDays"):=
                            list(mapply(getMeanDuringSample,
-                                       sample=sampleNum,
-                                       type="temperature",
-                                       MoreArgs=list(river='west brook')),
+                                       sample   = sampleNum,
+                                       type     = "temperature",
+                                       MoreArgs = list(river='west brook')),
                                 mapply(getMeanDuringSample,
-                                       sample=sampleNum,
-                                       type="discharge",
-                                       MoreArgs=list(river='west brook')))]
+                                       sample   = sampleNum,
+                                       type     = "discharge",
+                                       MoreArgs = list(river='west brook')))]
 
-meansDuringSample<-medianDateListForMissing[,list(sampleNum,tempDuringOccSampDays,dischDuringOccSampDays)]
+meansDuringSample<-medianDateListForMissing[,list(sampleNum,
+                                                  tempDuringOccSampDays,
+                                                  dischDuringOccSampDays)]
 
 setkey(sampleToSeason,sampleNumAdjConsec)
 setkey(meansDuringSample,sampleNum)
 meansDuringSample<-meansDuringSample[sampleToSeason]
 
-# use tempDuringOccSampDays for analyses - is the mean of actual days samples, not over range like tempDuringOcc                            
+# use tempDuringOccSampDays for analyses - is the mean of actual days samples, 
+# not over range like tempDuringOcc                            
 
-#need to fill in NaN entires in meansDuringSample. 1st get means, then merge in when entry is NaN
+#need to fill in NaN entires in meansDuringSample. 1st get means, 
+#then merge in when entry is NaN
 
 # add rows for samples not Attempted
 
 meansBySeason<-meansDuringSample[,list(mean(tempDuringOccSampDays,na.rm=T),
-                                       mean(dischDuringOccSampDays,na.rm=T)),by=season]
-setnames(meansBySeason,c("season",'tempDuringOccSampDays', 'dischDuringOccSampDays'))
+                                       mean(dischDuringOccSampDays,na.rm=T)),
+                                 by=season]
+setnames(meansBySeason,
+         c("season",'tempDuringOccSampDays','dischDuringOccSampDays'))
 # replace NaNs in meansDuringSample. these come from incomplete data in envData
 #should thoroughly check indexing and column names here
-fillWithMeans<-function(x,type){value<-meansBySeason[season==x,
-                                                     ifelse(type=='temperature',
-                                                            tempDuringOccSampDays,
-                                                            dischDuringOccSampDays)]
+fillWithMeans<-function(x,type){value<-
+                                 meansBySeason[season==x,
+                                               ifelse(type=='temperature',
+                                                      tempDuringOccSampDays,
+                                                      dischDuringOccSampDays)]
                                 return(value)
 }
 
 meansDuringSample[is.na(tempDuringOccSampDays),
                   c("tempDuringOccSampDays","dischDuringOccSampDays"):=
-                    list(mapply(fillWithMeans,x=season,
-                                MoreArgs=list(type='temperature')),
-                         mapply(fillWithMeans,x=season,
-                                MoreArgs=list(type='discharge')))]
+                    list(mapply(fillWithMeans,
+                                x = season,
+                                MoreArgs = list(type='temperature')),
+                         mapply(fillWithMeans,
+                                x = season,
+                                MoreArgs = list(type='discharge')))]
 meansDuringSample[,season:=NULL]
 # for ATS, 33 is NaN becasue minDate=maxDate
 #add T and flow to each row of data as covariates for p(capt)
@@ -659,11 +677,15 @@ dMData <- merge(
 
 
 #keep actual env data if capture, otherwise keep mean during sample.
-# with movement model, could estimate location and then estimate day of capture to get est env data
-dMData[,temperatureForP:=ifelse(is.na(date) | is.na(temperature),  # this adds in data when it's missing for the date of capture (SHOREY)
+# with movement model, could estimate location and then estimate day of
+# capture to get est env data
+
+# this adds in data when it's missing for the date of capture (SHOREY)
+dMData[,temperatureForP:=ifelse(is.na(date) | is.na(temperature),  
                                 tempDuringOccSampDays,
                                 temperature )]
-dMData[,dischargeForP:=ifelse(is.na(date) | is.na(discharge),  # this adds in data when it's missing for the date of capture (SHOREY)
+# this adds in data when it's missing for the date of capture (SHOREY)
+dMData[,dischargeForP:=ifelse(is.na(date) | is.na(discharge),  
                               dischDuringOccSampDays,
                               discharge )]
 
@@ -688,7 +710,7 @@ dMData <- merge(
 
 
 # set up template for all possible samples for antenna efficiency
-firstYearAnt <- 1997; lastYearAnt <- 2015 # need ot update this for samnles > 2015
+firstYearAnt <- 1997; lastYearAnt <- 2015
 yearSeasonListAnt <- as.data.frame(matrix(NA,(lastYearAnt-firstYearAnt+1)*4,2))
 i=0
 for (y in 1:(lastYearAnt-firstYearAnt+1)){
@@ -699,8 +721,13 @@ for (y in 1:(lastYearAnt-firstYearAnt+1)){
   }  
 }    
 names(yearSeasonListAnt) <- c('year','season')
-yearSeasonListAnt$propDaysOn <- 0.1    # set default to 0.1 so fish below have a chance of detection when antennas were not working
-#numbers based on graph in antennaDuda.r. Fill in rest for other year/season combos (e.g. when run trout)
+
+# set default to 0.1 so fish below 
+# have a chance of detection when antennas were not working
+yearSeasonListAnt$propDaysOn <- 0.1
+
+#numbers based on graph in antennaDuda.r. 
+# Fill in rest for other year/season combos (e.g. when run trout)
 yearSeasonListAnt$propDaysOn[19:43] <- (c(10,80,100,95,100,65,100,80,90,100,100,
                                           80,100,100,100,90,100,50,100,100,100,
                                           100,95,85,90) ) / 100
@@ -733,20 +760,28 @@ dMData[is.na(date),dateForEnv:=medianDateSampleNum,]
 
 addLagged<-function(data,individual,time,lag,k=1){
   #data is the data as a data.table
-  #individual is the name of the column containing the identifier for individuals in quotes
+  #individual is the name of the column containing the 
+   #identifier for individuals in quotes
   #time is the column that determines the order of observations
   #lag is the column that will be lagged
-  #k is the number of lags, positive values lag forward and negative values lag backwards
+  #k is the number of lags, positive values lag forward and 
+   #negative values lag backwards
   
   if(!is.data.table(data)){stop('data must be a data.table')}
   keycols<-c(individual,time)
   setkeyv(data,keycols)
   
   for(i in lag){
-    data[,c(paste0("lag",toupper(substr(i,1,1)),substr(i,2,100))):=list( #make the name for the new column in camelCase
-      ifelse(k>=0 & 1:length(get(i)) > 0, #second part is just to make the output of ifelse the same shape as the hole it fills
-             c(get(i)[(k+1):length(get(i))],rep(as.numeric(NA),k)), #if k>=0, pad with NAs at the end
-             c(rep(as.numeric(NA),abs(k)),get(i)[1:(length(get(i))-k)]))),#pad with NAs at the beginning if k<0
+    data[,
+         #make the name for the new column in camelCase
+         c(paste0("lag",toupper(substr(i,1,1)),substr(i,2,100))):=list( 
+           #second part of the following is just to make the output of 
+           #ifelse the same shape as the hole it fills
+      ifelse(k>=0 & 1:length(get(i)) > 0, 
+             #if k>=0, pad with NAs at the end
+             c(get(i)[(k+1):length(get(i))],rep(as.numeric(NA),k)),
+             #pad with NAs at the beginning if k<0
+             c(rep(as.numeric(NA),abs(k)),get(i)[1:(length(get(i))-k)]))),
       by=get(individual)]
   }
   return(data)  
@@ -767,7 +802,8 @@ dMData[,lagDateForEnv:=as.Date(lagDateForEnv,origin="1970-01-01")]
 
 dMData[,lastAIS:=max(ageInSamples,na.rm=T),by=tag]
 
-#if limit years so that early samples for an older cohort are cut off, can get fish with 0
+#if limit years so that early samples for an older cohort are cut off, 
+# can get fish with 0
 #observations. This messes up the evalRows etc
 #minSAmpleNum <- min(dMData$sampleNum)
 #dMData2  <- dMData[ dMData$last > minSAmpleNum, ]
@@ -817,7 +853,7 @@ dMData[,ageGroup:=floor(ageInSamples/4)]
 # dMData[,ageGroup:=NULL]
 
 #Remove any maturity indicators that are not summer
-dMData[season!=2,bla:=NA]
+# dMData[season!=2,bla:=NA]
 ##############################################################
 
 dMData[,intervalLength:=difftime(lagDateForEnv,dateForEnv, unit="days")]
@@ -841,13 +877,16 @@ dMData[,intervalLength:=difftime(lagDateForEnv,dateForEnv, unit="days")]
 # #export query as text file without formatting
 # # then copy to felek
 # 
-# antennaTribs$date2 <- as.POSIXct(strptime(antennaTribs$date, format = "%m/%d/%Y"))
+# antennaTribs$date2 <- as.POSIXct(strptime(antennaTribs$date, 
+#                                  format = "%m/%d/%Y"))
 # antennaTribs$tagNumberCH <- as.character(antennaTribs$tagNumber)
 # 
-# #countAntennaTribs <- ddply( antennaTribs[,c('tagNumber','river','date2')], .(tagNumber, river),  
+# #countAntennaTribs <- ddply( antennaTribs[,c('tagNumber','river','date2')], 
+                               #.(tagNumber, river),  
 # #  						summarise,  ct=length(date2)
 # #		   				  ) 
-# #countAntennaTribs <- countAntennaTribs[ order(countAntennaTribs$tagNumber,countAntennaTribs$river),]
+# #countAntennaTribs <- countAntennaTribs[ order(countAntennaTribs$tagNumber,
+#                                          countAntennaTribs$river),]
 # 
 # 
 # # count the number of time a fiSh waS oberved on trib antenna
@@ -877,7 +916,8 @@ dMData[,intervalLength:=difftime(lagDateForEnv,dateForEnv, unit="days")]
 # #		
 # #			if( hold$river[j] == 'WB MITCHELL' &
 # #				hold$date2[j] > dMData$dateForEnv[ i ]  &
-# #				hold$date2[j] <= dMData$lagDateForEnv[ i ] ) cMitchell <- cMitchell + 1	
+# #				hold$date2[j] <= dMData$lagDateForEnv[ i ] ) cMitchell <- 
+#                                                      cMitchell + 1	
 # #     }
 # 
 # #	}
@@ -890,7 +930,8 @@ dMData[,intervalLength:=difftime(lagDateForEnv,dateForEnv, unit="days")]
 # #}    
 # 
 # #thiS work faster
-# m <- merge ( x = dMData, y=antennaTribs[,c('river','tagNumberCH','date2')], by = c('tagNumberCH'), all.x=TRUE)
+# m <- merge ( x = dMData, y=antennaTribs[,c('river','tagNumberCH','date2')],
+#                                          by = c('tagNumberCH'), all.x=TRUE)
 # #m <- m[order(m$tagNumberCH,m$sampleNum),]
 # m$antennaHit <- ifelse( m$date2.y > m$dateForEnv & 
 #                           m$date2.y <= m$lagDateForEnv,
@@ -899,10 +940,14 @@ dMData[,intervalLength:=difftime(lagDateForEnv,dateForEnv, unit="days")]
 # m$antennaHit[ is.na( m$antennaHit) ] <- 0		                
 # 
 # # too Slow
-# #mHit <- ddply( m, .(river.y, tagNumberCH, sampleNum), summarise, sum( antennaHit ), .progress = "text" )		                
+# #mHit <- ddply( m, .(river.y, tagNumberCH, sampleNum), summarise, 
+#                   sum( antennaHit ), .progress = "text" )		                
 # 
-# #mHit <- tapply(m$antennaHit,list(m$river.y, m$tagNumberCH, m$sampleNum), sum)#, na.rm=TRUE)
-# mHit <- aggregate( m$antennaHit , by=list( m$river.y, m$tagNumberCH, m$sampleNum ),FUN=sum, na.rm =TRUE )
+# #mHit <- tapply(m$antennaHit,
+#                 list(m$river.y, m$tagNumberCH, m$sampleNum), sum)
+# mHit <- aggregate( m$antennaHit , 
+#                    by=list( m$river.y, m$tagNumberCH, m$sampleNum ),
+#                    FUN=sum, na.rm =TRUE )
 # 
 # names(mHit) <- c('river','tagNumberCH','sampleNum','antennaCount')
 # 
@@ -912,14 +957,20 @@ dMData[,intervalLength:=difftime(lagDateForEnv,dateForEnv, unit="days")]
 # mHitMitchell <- subset(mHit, river == 'WB MITCHELL')
 # mHitOBear <- subset(mHit, river == 'WB OBEAR')
 # 
-# names(mHitJimmy) <- c('antennaTrib','tagNumberCH', 'sampleNum', 'antennaCountJimmy')
-# names(mHitMitchell) <- c('antennaTrib','tagNumberCH', 'sampleNum', 'antennaCountMitchell')
-# names(mHitOBear) <- c('antennaTrib','tagNumberCH', 'sampleNum', 'antennaCountOBear')
+# names(mHitJimmy) <- c('antennaTrib','tagNumberCH', 
+#                       'sampleNum', 'antennaCountJimmy')
+# names(mHitMitchell) <- c('antennaTrib','tagNumberCH', 
+#                          'sampleNum', 'antennaCountMitchell')
+# names(mHitOBear) <- c('antennaTrib','tagNumberCH', 
+#                       'sampleNum', 'antennaCountOBear')
 # 
 # 
-# dMData <- merge ( x = dMData, y=mHitJimmy[,2:4], by = c('tagNumberCH', 'sampleNum'), all.x=TRUE)
-# dMData <- merge ( x = dMData, y=mHitMitchell[,2:4], by = c('tagNumberCH', 'sampleNum'), all.x=TRUE)
-# dMData <- merge ( x = dMData, y=mHitOBear[,2:4], by = c('tagNumberCH', 'sampleNum'), all.x=TRUE)
+# dMData <- merge ( x = dMData, y=mHitJimmy[,2:4], 
+#                   by = c('tagNumberCH', 'sampleNum'), all.x=TRUE)
+# dMData <- merge ( x = dMData, y=mHitMitchell[,2:4], 
+#                   by = c('tagNumberCH', 'sampleNum'), all.x=TRUE)
+# dMData <- merge ( x = dMData, y=mHitOBear[,2:4], 
+#                   by = c('tagNumberCH', 'sampleNum'), all.x=TRUE)
 # 
 # 
 # dMData$antennaCountJimmy[ is.na( dMData$antennaCountJimmy ) ] <- 0		                
@@ -930,9 +981,11 @@ dMData[,intervalLength:=difftime(lagDateForEnv,dateForEnv, unit="days")]
 # dMData$antennaCountMitchellGT1 <- ifelse(dMData$antennaCountMitchell >0, 1, 0)
 # dMData$antennaCountOBearGT1 <- ifelse(dMData$antennaCountOBear >0, 1, 0)
 # 
-# # get list of fish that moved from OBear to WB - this is better than fromTo becasue is doesn't rely on consec samples
+# # get list of fish that moved from OBear to WB - 
+# #  this is better than fromTo becasue is doesn't rely on consec samples
 # #could do the same thing for other movements...
-# wBAndOB <- ddply(dMData[!is.na(dMData$river),], .(tagNumberCH), function(x) {any(x$river == c('WEST BROOK')) * any(x$river == c('WB OBEAR'))})
+# wBAndOB <- ddply(dMData[!is.na(dMData$river),], .(tagNumberCH), function(x) {
+#              any(x$river == c('WEST BROOK')) * any(x$river == c('WB OBEAR'))})
 # wBAndOBTN <- wBAndOB[wBAndOB$V1 == T,1]
 # 
 # dMData$wBAndOB <- ifelse( dMData$tagNumberCH %in% wBAndOBTN, 1,0 )
@@ -945,19 +998,26 @@ dMData[,intervalLength:=difftime(lagDateForEnv,dateForEnv, unit="days")]
 # observations per individual in each river
 
 
-maxRiver<-dMData[!is.na(river),length(year),by=list(tag,river)][,river[which.max(V1)],by=tag]
+maxRiver<-dMData[!is.na(riverN),
+                 length(year),
+                 by=list(tag,riverN)][,riverN[which.max(V1)],
+                                      by=tag]
 setnames(maxRiver,"V1","maxRiver")
+setkey(maxRiver,tag)
 
 # NOTE - this lags backwards
 dMData <- addLagged(data = dMData, individual = "tag", time = "sampleNum", 
-                    lag = c("river"), k=-1)
-# Fills in most common river per tagNumber (r$maxRiver[ dMData$tagNumber ]) before first sample
-# Keeps river for obscerved occasions and grabs lagged (backwards) river for first uncaptured occasion
+                    lag = c("riverN"), k=-1)
+# Fills in most common river per tagNumber (r$maxRiver[ dMData$tagNumber ]) 
+#  before first sample
+# Keeps river for observed occasions and grabs lagged (backwards)
+#  river for first uncaptured occasion
 dMData[,riverConsec:=ifelse(sampleNum < first,
-                            maxRiver[tagNumber,maxRiver],
-                            ifelse(!is.na(river),
-                                   river,
-                                   lagRiver
+                            maxRiver[tag,
+                                     maxRiver],
+                            ifelse(!is.na(riverN),
+                                   riverN,
+                                   lagRiverN
                             )
 )
 ]
@@ -968,7 +1028,8 @@ dMData <- addLagged(data = dMData, individual = "tag", time = "sampleNum",
 #########################################################################
 
 ###################I'm not sure what addEnvironmentalData2 does..
-###################so I'll need to rewrite this after figuring that out, commenting out for now
+###################so I'll need to rewrite this after figuring that out, 
+ #commenting out for now
 #dateTime...' are the date cols in the pheno data
 # (before <- Sys.time())
 # dMData <- addEnvironmentalData2(
@@ -981,24 +1042,30 @@ dMData <- addLagged(data = dMData, individual = "tag", time = "sampleNum",
 # 
 # # fill in 'samples' before the study starts with means
 # 
-# envMeans <- aggregate((dMData[,c('intervalLength','maxT','meanT','medianT','minT','sdT','skewT',
-#                                  'maxD','meanD','medianD','minD','sdD','skewD') ] ),
-#                       by=list( dMData$drainage,dMData$season ),FUN=mean, na.rm =TRUE )
+# envMeans <- aggregate((dMData[,c('intervalLength','maxT','meanT',
+#                                  'medianT','minT','sdT','skewT',
+#                                  'maxD','meanD','medianD','minD',
+#                                  'sdD','skewD') ] ),
+#              by=list( dMData$drainage,dMData$season ),FUN=mean, na.rm =TRUE )
 # names(envMeans)[1:2] <- c('drainage','season')
 # 
 # ##############################################################################
 # ##############################################################################
 # #### Temporary fix to fill in mean data for augmented back rows ##############
 # ##############################################################################
-# dMData$seasonMeanIntLen<-envMeans$intervalLength[match(dMData$season,envMeans$season)]
+# dMData$seasonMeanIntLen<-envMeans$intervalLength[match(dMData$season,
+#                                                        envMeans$season)]
 # dMData$seasonMeanT <- envMeans$meanT[ match(dMData$season,envMeans$season) ]
 # dMData$seasonMeanD<-envMeans$meanD[match(dMData$season,envMeans$season)]
 # dMData$fullMeanIntLen<-dMData$intervalLength
 # dMData$fullMeanT<-dMData$meanT
 # dMData$fullMeanD<-dMData$meanD
-# dMData$fullMeanIntLen[which(is.na(dMData$intervalLength))]<-dMData$seasonMeanIntLen[which(is.na(dMData$intervalLength))]
-# dMData$fullMeanT[which(is.na(dMData$meanT))]<-dMData$seasonMeanT[which(is.na(dMData$meanT))]
-# dMData$fullMeanD[which(is.na(dMData$meanD))]<-dMData$seasonMeanD[which(is.na(dMData$meanT))]
+# dMData$fullMeanIntLen[which(is.na(dMData$intervalLength))]<-
+#     dMData$seasonMeanIntLen[which(is.na(dMData$intervalLength))]
+# dMData$fullMeanT[which(is.na(dMData$meanT))]<-
+#     dMData$seasonMeanT[which(is.na(dMData$meanT))]
+# dMData$fullMeanD[which(is.na(dMData$meanD))]<-
+#     dMData$seasonMeanD[which(is.na(dMData$meanT))]
 # ##############################################################################
 # ##############################################################################
 # ##############################################################################
@@ -1008,16 +1075,24 @@ dMData <- addLagged(data = dMData, individual = "tag", time = "sampleNum",
 # 
 # ##############################################################################
 
-evalList <- list(firstObsRows=firstObsRows,nFirstObsRows=nFirstObsRows,
-                 lastObsRows=lastObsRows,nLastObsRows=nLastObsRows,
-                 evalRows=evalRows,nEvalRows=nEvalRows,
-                 evalJSRows=evalJSRows,nEvalJSRows=nEvalJSRows,
-                 summerObsRows=summerObsRows,nSummerObsRows=nSummerObsRows,
-                 nonSummerObsRows=nonSummerObsRows, nNonSummerObsRows=nNonSummerObsRows,
-                 summerAIS=summerAIS, nonSummerAIS=nonSummerAIS)
+evalList <- list(firstObsRows      = firstObsRows,
+                 nFirstObsRows     = nFirstObsRows,
+                 lastObsRows       = lastObsRows,
+                 nLastObsRows      = nLastObsRows,
+                 evalRows          = evalRows,
+                 nEvalRows         = nEvalRows,
+                 evalJSRows        = evalJSRows,
+                 nEvalJSRows       = nEvalJSRows,
+                 summerObsRows     = summerObsRows,
+                 nSummerObsRows    = nSummerObsRows,
+                 nonSummerObsRows  = nonSummerObsRows, 
+                 nNonSummerObsRows = nNonSummerObsRows,
+                 summerAIS         = summerAIS,
+                 nonSummerAIS      = nonSummerAIS)
 
 # means for standardizing
-lengthStd <- tapply(dMData$length,dMData$ageInSamples,mean, na.rm=TRUE)     # need to do this for the SR, so fish in AIS 10,13,14
+lengthStd <- tapply(dMData$length,dMData$ageInSamples,mean, na.rm=TRUE)     
+# need to do this for the SR, so fish in AIS 10,13,14
 
 stdList <-
   list(
@@ -1068,27 +1143,34 @@ count2[,riverN:=riverN+1]
 
 uniqueSamples<-unique(count2[,list(seasonConsec,yearConsec)])
 fillIn5 <- cbind(uniqueSamples[rep(1:nrow(uniqueSamples),nRivers+1)],
-                 riverN=rep(1:(nRivers+1),each=nrow(uniqueSamples)),key=c("riverN","yearConsec","seasonConsec")) 
+                 riverN=rep(1:(nRivers+1),each=nrow(uniqueSamples)),
+                 key=c("riverN","yearConsec","seasonConsec")) 
 
 setkey(count2,riverN,yearConsec,seasonConsec)
 count2<-count2[fillIn5]
 count2[,countAdj:=scaleVec(count,na.rm=T),by=list(seasonConsec,riverN)]
 count2[is.na(count),count:=0]
-#count2[riverN == 1, count:=as.numeric(rbinom(  sum((riverN == 1)),20,0.75 ))] # put in dummy numbers so don't get a sd of 0 calculated in bugs
+#count2[riverN == 1, count:=as.numeric(rbinom(  sum((riverN == 1)),20,0.75 ))] 
+# put in dummy numbers so don't get a sd of 0 calculated in bugs
 count2[,year2:=yearConsec-min(yearConsec)+1]
 
 countForN <- array(count2[,count],c(4,nYears,nRivers+1))
-meanForN <- array(count2[,mean(count),by=list(riverN,seasonConsec)]$V1,c(4,nRivers+1)) #need to check indexing to see if it matches
-sdForN <- array(count2[,sd(count),by=list(riverN,seasonConsec)]$V1,c(4,nRivers+1)) #need to check indexing to see if it matches
+meanForN <- array(count2[,mean(count),
+                         by=list(riverN,seasonConsec)]$V1,
+                         c(4,nRivers+1)) #need to check indexing
+sdForN <- array(count2[,sd(count),
+                       by=list(riverN,seasonConsec)]$V1,c(4,nRivers+1)) 
+#need to check indexing to see if it matches
+
 sdForN[sdForN == 0 ]  <- 1 # so we don't divide by 0
 
 statsForN <- list(
   countForN = countForN,
-  meanForN = meanForN,
-  sdForN = sdForN,
-  nYears = nYears,
-  minYear = min(count2$yearConsec),
-  maxYear = max(count2$yearConsec)
+  meanForN  = meanForN,
+  sdForN    = sdForN,
+  nYears    = nYears,
+  minYear   = min(count2$yearConsec),
+  maxYear   = max(count2$yearConsec)
   
 ) 
 
@@ -1102,7 +1184,11 @@ file.copy(from='./makeDMData.R', to=paste(directory,'makeDMData.R',sep='/'))
 writeLines(text=directory, con='./latest_directory')
 print(directory)
 
-fileName <- paste('dMDataOut',species,subsetDMdataCohortMin,'_', subsetDMdataCohortMax,'.RData', sep='')
+fileName <- paste('dMDataOut',
+                   species,
+                   subsetDMdataCohortMin,'_',
+                   subsetDMdataCohortMax,
+                   '.RData', sep='')
 
 #save.image(paste(directory,fileName, sep=''))
 save(dMData, evalList, stdList, stdList_cohort, statsForN,
@@ -1110,6 +1196,9 @@ save(dMData, evalList, stdList, stdList_cohort, statsForN,
 save(dMData,evalList,stdList,stdList_cohort,statsForN,
      file= file.path(processedDir,fileName))
 print(str(dMData))
+
+assign('dMData',dMData,envir=.GlobalEnv)
+assign('evalList',evalList,envir=.GlobalEnv)
 }
 ##############################################################################
 ##############################################################################
