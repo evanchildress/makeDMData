@@ -1069,6 +1069,8 @@ nSamples <- dMData[,max(sampleNumAdj)]
 samples <- dMData[,list(sampleNumAdj,sampleNum,season,year)]
 setkey(samples,sampleNumAdj,sampleNum,season,year)
 samples<-unique(samples)
+summerSamples<-samples[,which(season==2)]
+nonSummerSamples<-samples[,which(season!=2)]
 
 nRivers<-dMData[!is.na(riverN),
                 length(unique(riverN))]
@@ -1086,6 +1088,7 @@ if(modelType=='js'){
     z<-rep(NA,max(samplesInData))
     z[samplesInData < born] <- 1 #sets state to not entered before birth
     z[samplesInData >= born & samplesInData <= unknownAfter] <- 2 #alive when known
+    z[samplesInData-born >=4 & z==2]<-3
     return(z)
   }
   
@@ -1136,11 +1139,11 @@ nEvalRows <- length(evalRows)
 
 evalJSRows <- dMData[,which(ageInSamples != lastAIS)]
 nEvalJSRows <- length(evalJSRows)   
+
 }
 
 
 ############################################################
-
 # variables for estimating pMat
 summerObsRows <- dMData[,which(season == 2)]
 nSummerObsRows <- length(summerObsRows)
@@ -1170,7 +1173,9 @@ evalList <- list(firstObsRows      = firstObsRows,
                  nonSummerAIS      = nonSummerAIS,
                  nSamples          = nSamples,
                  samples           = samples,
-                 nRivers           = nRivers)
+                 nRivers           = nRivers,
+                 summerSamples     = summerSamples,
+                 nonSummerSamples  = nonSummerSamples)
 
 ######################################################################
 # # means for standardizing
@@ -1282,6 +1287,13 @@ save(dMData, evalList, stdList, stdList_cohort, statsForN,
 save(dMData,evalList,stdList,stdList_cohort,statsForN,
      file= file.path(processedDir,fileName))
 print(str(dMData))
+}
+
+if(modelType=='js'){
+  save(dMData, evalList, d,
+       file = paste("~/westbrookJS",fileName, sep='/'))
+  save(dMData,evalList,d,
+       file= file.path(processedDir,fileName))
 }
 
 assign('dMData',dMData,envir=.GlobalEnv)
