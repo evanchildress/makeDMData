@@ -1,7 +1,7 @@
 makeDMData<-function(species='bkt', 
                      cohorts=c(1996,2014),
                      studyYears = c(2000,2014),
-                     modelType = 'cjs',
+                     modelType = 'js',
                      dbCredentials="~/wb_credentials.rds", 
                      processedDir="~/process-data/data_store/processed_data" 
 ){
@@ -262,7 +262,7 @@ pheno[,daysOld:=julian + age * 365]
 # pheno[,mature01 := ifelse(maturity %in% c('p','m','f'),1,0)]
 # pheno[,everMat01:=max(mature01),by=tag]
 
-pheno$riverN<-as.numeric(factor(pheno$river))  #Jimmy 1, Mitchell 2, WB 3
+pheno$riverN<-as.numeric(factor(pheno$river))
 
 #rename wB sample 41.8 to 42. 42 was a sampleComple==NO, 
 # but there are equivalent samples in the other rivers
@@ -400,7 +400,7 @@ setkey(template, tag, sampleNumAdjConsec)
 
 pheno2Long <- pheno2[template]
 
-pheno2Long$enc <- ifelse(is.na(pheno2Long$sample_name),0,1)
+pheno2Long[,enc:=ifelse(is.na(sample_name),0,1)]
 
 
 ##############################################################################
@@ -811,30 +811,6 @@ dMData[,lastAIS:=max(ageInSamples,na.rm=T),by=tag]
 
 setkey(dMData,tag,sampleNum)  # MUST order before doing eval rows.
 
-firstObsRows= dMData[,which(first==sampleNum)]
-nFirstObsRows <- length( firstObsRows )
-lastObsRows <- dMData[,which(is.na(lagDateForEnv))]
-nLastObsRows <- length(lastObsRows)
-
-evalRows <- dMData[,which(!is.na(lagDateForEnv) & sampleNum >= first)]
-nEvalRows <- length(evalRows)
-
-evalJSRows <- dMData[,which(ageInSamples != lastAIS)]
-nEvalJSRows <- length(evalJSRows)   
-
-############################################################
-
-# variables for estimating pMat
-summerObsRows <- dMData[,which(season == 2)]
-nSummerObsRows <- length(summerObsRows)
-
-nonSummerObsRows <- dMData[,which(season!=2)]
-nNonSummerObsRows <- length(nonSummerObsRows)
-
-occasions <-unique(dMData[,list(ageInSamples,season)])
-summerAIS <- occasions$ageInSamples[occasions$season == 2]
-nonSummerAIS <- occasions$ageInSamples[occasions$season != 2]
-
 #########################################################
 # 1= matured in that maturity year (suummer to next spring)
 # 0 = observed immature in fall
@@ -1012,6 +988,17 @@ dMData <- addLagged(data = dMData, individual = "tag", time = "sampleNum",
 #  before first sample
 # Keeps river for observed occasions and grabs lagged (backwards)
 #  river for first uncaptured occasion
+dMData[,riverN:=ifelse(sampleNum<first,riverN[which(!is.na(riverN))[1]],riverN),by=tag]
+
+dMData[,riverN:=
+         ifelse(length(unique(na.omit(riverN)))==1,
+                unique(na.omit(riverN)),
+                riverN),
+       by=tag]
+
+
+
+
 dMData[,riverConsec:=ifelse(sampleNum < first,
                             maxRiver[tag,
                                      maxRiver],
@@ -1074,6 +1061,98 @@ dMData <- addLagged(data = dMData, individual = "tag", time = "sampleNum",
 # dMData <- dMData[ order(dMData$tagNumber,dMData$sampleNum),]   
 # 
 # ##############################################################################
+if(modelType=='js'){
+  dMData[,sampleNumAdj:=sampleNum-min(sampleNum)+1]
+}
+
+nSamples <- dMData[,max(sampleNumAdj)]
+samples <- dMData[,list(sampleNumAdj,sampleNum,season,year)]
+setkey(samples,sampleNumAdj,sampleNum,season,year)
+samples<-unique(samples)
+
+nRivers<-dMData[!is.na(riverN),
+                length(unique(riverN))]
+
+########################################################################
+if(modelType=='js'){
+  
+  knowns <- function(samplesInData,cohort,last){
+    if(cohort<min(samples$year)){born<-2
+    } else {
+    born <- samples[year==cohort & season == 2, sampleNumAdj]
+    }
+    unknownAfter <- samples[sampleNum==last,sampleNumAdj]
+    
+    z<-rep(NA,max(samplesInData))
+    z[samplesInData < born] <- 1 #sets state to not entered before birth
+    z[samplesInData >= born & samplesInData <= unknownAfter] <- 2 #alive when known
+    return(z)
+  }
+  
+  dMData[,zKnown:=knowns(sampleNumAdj,unique(cohort),unique(last)),by=tag]
+  dMData[sampleNumAdj==1,zKnown:=1] #everyone starts the study not entered
+  
+  d<-dMData[,list(sampleNumAdj,
+                  riverN,
+                  enc,
+                  zKnown)]
+  
+  for(r in 1:nRivers){
+    nExtras<-round(dMData[riverN==r,length(unique(tag))]*0.3)
+    assign(paste0('aug',r),
+           data.table(sampleNumAdj=rep(1:nSamples,nExtras)))
+    get(paste0('aug',r))[,c("riverN","enc","zKnown"):=
+                           list(r,    0,   as.numeric(NA))]
+  }
+  aug<-rbind(aug1,aug2,aug3,aug4)
+  aug[sampleNumAdj==1,zKnown:=1]
+  d<-rbind(d,aug)
+  d[,enc:=abs(enc-2)]
+  
+}
+
+
+if(modelType=='js'){
+  firstObsRows<- d[,which(sampleNumAdj==1)]
+  nFirstObsRows <- length( firstObsRows )
+  lastObsRows <- c(firstObsRows[2:nFirstObsRows]-1,nrow(d))
+  nLastObsRows <- length(lastObsRows)
+  
+  evalRows <- d[,which(sampleNumAdj!=1)]
+  nEvalRows <- length(evalRows)
+  
+  evalJSRows <- dMData[,which(ageInSamples != lastAIS)]
+  nEvalJSRows <- length(evalJSRows) 
+}
+
+if(modelType!='js'){
+firstObsRows= dMData[,which(first==sampleNum)]
+nFirstObsRows <- length( firstObsRows )
+lastObsRows <- dMData[,which(is.na(lagDateForEnv))]
+nLastObsRows <- length(lastObsRows)
+
+evalRows <- dMData[,which(!is.na(lagDateForEnv) & sampleNum >= first)]
+nEvalRows <- length(evalRows)
+
+evalJSRows <- dMData[,which(ageInSamples != lastAIS)]
+nEvalJSRows <- length(evalJSRows)   
+}
+
+
+############################################################
+
+# variables for estimating pMat
+summerObsRows <- dMData[,which(season == 2)]
+nSummerObsRows <- length(summerObsRows)
+
+nonSummerObsRows <- dMData[,which(season!=2)]
+nNonSummerObsRows <- length(nonSummerObsRows)
+
+occasions <-unique(dMData[,list(ageInSamples,season)])
+summerAIS <- occasions$ageInSamples[occasions$season == 2]
+nonSummerAIS <- occasions$ageInSamples[occasions$season != 2]
+
+###################################################################
 
 evalList <- list(firstObsRows      = firstObsRows,
                  nFirstObsRows     = nFirstObsRows,
@@ -1088,46 +1167,51 @@ evalList <- list(firstObsRows      = firstObsRows,
                  nonSummerObsRows  = nonSummerObsRows, 
                  nNonSummerObsRows = nNonSummerObsRows,
                  summerAIS         = summerAIS,
-                 nonSummerAIS      = nonSummerAIS)
+                 nonSummerAIS      = nonSummerAIS,
+                 nSamples          = nSamples,
+                 samples           = samples,
+                 nRivers           = nRivers)
 
-# means for standardizing
-lengthStd <- tapply(dMData$length,dMData$ageInSamples,mean, na.rm=TRUE)     
-# need to do this for the SR, so fish in AIS 10,13,14
-
-stdList <-
-  list(
-    lengthStd = lengthStd
-    #tempStd = tapply(dMData$fullMeanT,dMData$season,mean),
-    #flowStd = tapply(dMData$fullMeanD,dMData$season,mean) 
-  )
-
-# for cohort by ais means
-nAgeInSamples = length(unique(dMData$ageInSamples))
-nCohorts = length(unique(dMData$cohort))
-cohortIndex<-dMData$cohort
-
-aisMeans <- dMData[,mean(length,na.rm=T),by=ageInSamples]
-setnames(aisMeans,"V1","aisMeanLength")
-aisCohortMeans <- dMData[,mean(length,na.rm=T),by=list(cohort,ageInSamples)]
-setnames(aisCohortMeans,"V1","aisCohortMeanLength")
-
-
-setkey(aisMeans,ageInSamples)
-setkey(aisCohortMeans,ageInSamples)
-aisCohortMeans<-aisMeans[aisCohortMeans]
-aisCohortMeans[is.na(aisCohortMeanLength),aisCohortMeanLength:=aisMeanLength]
-
-
-stdList_cohort <-
-  list(
-    lengthStd = aisCohortMeans
-    #tempStd = tapply(dMData$fullMeanT,dMData$season,mean),
-    #flowStd = tapply(dMData$fullMeanD,dMData$season,mean) 
-  )
+######################################################################
+# # means for standardizing
+# lengthStd <- tapply(dMData$length,dMData$ageInSamples,mean, na.rm=TRUE)     
+# # need to do this for the SR, so fish in AIS 10,13,14
+# 
+# stdList <-
+#   list(
+#     lengthStd = lengthStd
+#     #tempStd = tapply(dMData$fullMeanT,dMData$season,mean),
+#     #flowStd = tapply(dMData$fullMeanD,dMData$season,mean) 
+#   )
+# 
+# # for cohort by ais means
+# nAgeInSamples = length(unique(dMData$ageInSamples))
+# nCohorts = length(unique(dMData$cohort))
+# cohortIndex<-dMData$cohort
+# 
+# aisMeans <- dMData[,mean(length,na.rm=T),by=ageInSamples]
+# setnames(aisMeans,"V1","aisMeanLength")
+# aisCohortMeans <- dMData[,mean(length,na.rm=T),by=list(cohort,ageInSamples)]
+# setnames(aisCohortMeans,"V1","aisCohortMeanLength")
+# 
+# 
+# setkey(aisMeans,ageInSamples)
+# setkey(aisCohortMeans,ageInSamples)
+# aisCohortMeans<-aisMeans[aisCohortMeans]
+# aisCohortMeans[is.na(aisCohortMeanLength),aisCohortMeanLength:=aisMeanLength]
+# 
+# 
+# stdList_cohort <-
+#   list(
+#     lengthStd = aisCohortMeans
+#     #tempStd = tapply(dMData$fullMeanT,dMData$season,mean),
+#     #flowStd = tapply(dMData$fullMeanD,dMData$season,mean) 
+#   )
 
 ##########################################################
 # do counts for stdN in the growthSurvivalMove model. 
 #need counts of fish from all cohorts for estimate of N
+if(modelType=='someFutureType'){
 scaleVec<-function(x,na.rm=F){(x-mean(x,na.rm=na.rm))/sd(x,na.rm=na.rm)}
 nRivers <- length(unique(dMData[!is.na(river),river]))
 nYears = max(dMData$year)-min(dMData$year)+1
@@ -1173,6 +1257,7 @@ statsForN <- list(
   maxYear   = max(count2$yearConsec)
   
 ) 
+}
 
 ##########################################################
 ##############################################################################
@@ -1191,14 +1276,17 @@ fileName <- paste('dMDataOut',
                    '.RData', sep='')
 
 #save.image(paste(directory,fileName, sep=''))
+if(modelType=='needToChangeThis'){
 save(dMData, evalList, stdList, stdList_cohort, statsForN,
      file = paste(directory,fileName, sep='/'))
 save(dMData,evalList,stdList,stdList_cohort,statsForN,
      file= file.path(processedDir,fileName))
 print(str(dMData))
+}
 
 assign('dMData',dMData,envir=.GlobalEnv)
 assign('evalList',evalList,envir=.GlobalEnv)
+assign('d',d,envir=.GlobalEnv)
 }
 ##############################################################################
 ##############################################################################
