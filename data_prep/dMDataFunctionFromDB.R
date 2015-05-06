@@ -1085,13 +1085,12 @@ if(modelType=='js'){
     } else {
     born <- samples[year==cohort & season == 2, sampleNumAdj]
     }
-    
     unknownAfter <- samples[sampleNum==last,sampleNumAdj]
     
     z<-rep(NA,max(samplesInData))
     z[samplesInData < born] <- 1 #sets state to not entered before birth
     z[samplesInData >= born & samplesInData <= unknownAfter] <- 2 #alive when known
-    z[samplesInData-born >=4 & z==2]<-3
+    z[(samplesInData-born) >=4 & z==2]<-3 #adult after age in samples 4
     return(z)
   }
   
@@ -1172,27 +1171,26 @@ evalList <- list(evalRows          = evalRows,
 }
 
 if(modelType=='cjs'){
-  evalList <- list(firstObsRows      = firstObsRows,
-                   nFirstObsRows     = nFirstObsRows,
-                   lastObsRows       = lastObsRows,
-                   nLastObsRows      = nLastObsRows,
-                   evalRows          = evalRows,
-                   nEvalRows         = nEvalRows,
-                   evalJSRows        = evalJSRows,
-                   nEvalJSRows       = nEvalJSRows,
-                   summerObsRows     = summerObsRows,
-                   nSummerObsRows    = nSummerObsRows,
-                   nonSummerObsRows  = nonSummerObsRows, 
-                   nNonSummerObsRows = nNonSummerObsRows,
-                   summerAIS         = summerAIS,
-                   nonSummerAIS      = nonSummerAIS,
-                   nSamples          = nSamples,
-                   samples           = samples,
-                   nRivers           = nRivers,
-                   summerSamples     = summerSamples,
-                   nonSummerSamples  = nonSummerSamples)
+evalList <- list(firstObsRows      = firstObsRows,
+                 nFirstObsRows     = nFirstObsRows,
+                 lastObsRows       = lastObsRows,
+                 nLastObsRows      = nLastObsRows,
+                 evalRows          = evalRows,
+                 nEvalRows         = nEvalRows,
+                 evalJSRows        = evalJSRows,
+                 nEvalJSRows       = nEvalJSRows,
+                 summerObsRows     = summerObsRows,
+                 nSummerObsRows    = nSummerObsRows,
+                 nonSummerObsRows  = nonSummerObsRows, 
+                 nNonSummerObsRows = nNonSummerObsRows,
+                 summerAIS         = summerAIS,
+                 nonSummerAIS      = nonSummerAIS,
+                 nSamples          = nSamples,
+                 samples           = samples,
+                 nRivers           = nRivers,
+                 summerSamples     = summerSamples,
+                 nonSummerSamples  = nonSummerSamples)
 }
-
 ######################################################################
 # # means for standardizing
 # lengthStd <- tapply(dMData$length,dMData$ageInSamples,mean, na.rm=TRUE)     
@@ -1279,24 +1277,6 @@ statsForN <- list(
   
 ) 
 }
-##########################################################
-#For js model need indices to compute N
-if(modelType=='js'){
-  sampleRows<-array(NA,dim=c(20000,nSamples,nRivers))
-  nSampleRows<-array(NA,dim=c(nSamples,nRivers))
-  for(r in 1:nRivers){
-    for(s in 1:nSamples){
-      rows<-d[,which(sampleNumAdj==s & riverN==r)]
-      sampleRows[1:length(rows),s,r]<-rows
-    }
-    nSampleRows[,r]<-apply(sampleRows[,,r],2,
-                      function(x){return(length(na.omit(x)))})
-  }
-  sampleRows<-sampleRows[1:max(nSampleRows),,]
-  evalList$sampleRows<-sampleRows
-  evalList$nSampleRows<-nSampleRows
-}
-
 
 ##########################################################
 ##############################################################################
