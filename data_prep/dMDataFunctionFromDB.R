@@ -1096,6 +1096,7 @@ if(modelType=='js'){
   
   dMData[,zKnown:=knowns(sampleNumAdj,unique(cohort),unique(last)),by=tag]
   dMData[sampleNumAdj==1,zKnown:=1] #everyone starts the study not entered
+  dMData$zKnown[dMData[,which(sampleNumAdj==2&zKnown==3)]-1]<-3
   
   d<-dMData[,list(sampleNumAdj,
                   riverN,
