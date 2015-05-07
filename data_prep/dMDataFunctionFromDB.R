@@ -1103,7 +1103,7 @@ if(modelType=='js'){
                   zKnown)]
   
   for(r in 1:nRivers){
-    nExtras<-round(dMData[riverN==r,length(unique(tag))]*0.3)
+    nExtras<-round(dMData[riverN==r,length(unique(tag))])
     assign(paste0('aug',r),
            data.table(sampleNumAdj=rep(1:nSamples,nExtras)))
     get(paste0('aug',r))[,c("riverN","enc","zKnown"):=
@@ -1279,6 +1279,24 @@ statsForN <- list(
 }
 
 ##########################################################
+##########################################################
+#For js model need indices to compute N
+  if(modelType=='js'){
+      sampleRows<-array(NA,dim=c(20000,nSamples,nRivers))
+      nSampleRows<-array(NA,dim=c(nSamples,nRivers))
+      for(r in 1:nRivers){
+          for(s in 1:nSamples){
+              rows<-d[,which(sampleNumAdj==s & riverN==r)]
+              sampleRows[1:length(rows),s,r]<-rows
+            }
+          nSampleRows[,r]<-apply(sampleRows[,,r],2,
+                                  function(x){return(length(na.omit(x)))})
+        }
+      sampleRows<-sampleRows[1:max(nSampleRows),,]
+      evalList$sampleRows<-sampleRows
+      evalList$nSampleRows<-nSampleRows
+    }
+
 ##############################################################################
 # output dMData  to species_DMData_river.RData
 ############################################################################## 
