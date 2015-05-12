@@ -207,8 +207,14 @@ if (species == 'ats'  ) {
 
 }
 
-if (species %in% c('bkt','bnt')) {
+if (species %in% c('bkt')) {
   riverSubset <- tolower(c('WEST BROOK','WB JIMMY','WB MITCHELL',"WB OBEAR")) 
+  areaSubset <- tolower(c('INSIDE', 'ABOVE', 'BELOW', 'TRIB','ABOVE ABOVE',
+                          'aboveabove','BELOW BELOW' )) 
+}
+
+if (species %in% c('bnt')) {
+  riverSubset <- tolower(c('WEST BROOK','WB MITCHELL',"WB JIMMY")) 
   areaSubset <- tolower(c('INSIDE', 'ABOVE', 'BELOW', 'TRIB','ABOVE ABOVE',
                           'aboveabove','BELOW BELOW' )) 
 }
@@ -262,7 +268,6 @@ pheno[,daysOld:=julian + age * 365]
 # pheno[,mature01 := ifelse(maturity %in% c('p','m','f'),1,0)]
 # pheno[,everMat01:=max(mature01),by=tag]
 
-pheno$riverN<-as.numeric(factor(pheno$river))
 
 #rename wB sample 41.8 to 42. 42 was a sampleComple==NO, 
 # but there are equivalent samples in the other rivers
@@ -281,6 +286,8 @@ pheno <- pheno[ !duplicated(pheno[,list(tag,sample_name)]), ]
 pheno2 <- pheno[species %in% get('species',env=execEnv) &
                 river   %in% riverSubset &
                 area    %in% areaSubset]
+
+pheno2$riverN<-as.numeric(factor(pheno2$river))
 
 #############################################################################
 # Generate data to set up long data format
@@ -1096,6 +1103,7 @@ if(modelType=='js'){
   
   dMData[,zKnown:=knowns(sampleNumAdj,unique(cohort),unique(last)),by=tag]
   dMData[sampleNumAdj==1,zKnown:=1] #everyone starts the study not entered
+  #except those coming into the study as adults, because prob of going unentered to adult is 0
   dMData$zKnown[dMData[,which(sampleNumAdj==2&zKnown==3)]-1]<-3
   
   d<-dMData[,list(sampleNumAdj,
@@ -1104,13 +1112,15 @@ if(modelType=='js'){
                   zKnown)]
   
   for(r in 1:nRivers){
-    nExtras<-round(dMData[riverN==r,length(unique(tag))])
+    nExtras<-round(dMData[riverN==r,length(unique(tag))]*0.2)
     assign(paste0('aug',r),
            data.table(sampleNumAdj=rep(1:nSamples,nExtras)))
     get(paste0('aug',r))[,c("riverN","enc","zKnown"):=
                            list(r,    0,   as.numeric(NA))]
   }
-  aug<-rbind(aug1,aug2,aug3,aug4)
+  
+  if(species=='bkt'){aug<-rbind(aug1,aug2,aug3,aug4)}
+  if(species=='bnt'){aug<-rbind(aug1,aug2,aug3)}
   aug[sampleNumAdj==1,zKnown:=1]
   d<-rbind(d,aug)
   d[,enc:=abs(enc-2)]
@@ -1288,7 +1298,9 @@ statsForN <- list(
       for(r in 1:nRivers){
           for(s in 1:nSamples){
               rows<-d[,which(sampleNumAdj==s & riverN==r)]
+              if(length(rows)>0){
               sampleRows[1:length(rows),s,r]<-rows
+              }
             }
           nSampleRows[,r]<-apply(sampleRows[,,r],2,
                                   function(x){return(length(na.omit(x)))})
@@ -1297,6 +1309,7 @@ statsForN <- list(
       evalList$sampleRows<-sampleRows
       evalList$nSampleRows<-nSampleRows
     }
+
 
 ##############################################################################
 # output dMData  to species_DMData_river.RData
@@ -1313,6 +1326,7 @@ fileName <- paste('dMDataOut',
                    subsetDMdataCohortMax,
                    '.RData', sep='')
 
+
 #save.image(paste(directory,fileName, sep=''))
 if(modelType=='needToChangeThis'){
 save(dMData, evalList, stdList, stdList_cohort, statsForN,
@@ -1328,6 +1342,8 @@ if(modelType=='js'){
   save(dMData,evalList,d,
        file= file.path(processedDir,fileName))
 }
+
+
 
 assign('dMData',dMData,envir=.GlobalEnv)
 assign('evalList',evalList,envir=.GlobalEnv)
