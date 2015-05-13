@@ -1112,7 +1112,7 @@ if(modelType=='js'){
                   zKnown)]
   
   for(r in 1:nRivers){
-    nExtras<-round(dMData[riverN==r,length(unique(tag))]*0.2)
+    nExtras<-round(dMData[riverN==r,length(unique(tag))]*0.5)
     assign(paste0('aug',r),
            data.table(sampleNumAdj=rep(1:nSamples,nExtras)))
     get(paste0('aug',r))[,c("riverN","enc","zKnown"):=
