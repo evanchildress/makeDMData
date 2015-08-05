@@ -1,6 +1,6 @@
 makeDMData<-function(species='bkt', 
-                     cohorts=c(1996,2014),
-                     studyYears = c(2000,2014),
+                     cohorts=c(1996,2015),
+                     studyYears = c(2000,2015),
                      modelType = 'js',
                      dbCredentials="~/wb_credentials.rds", 
                      processedDir="~/process-data/data_store/processed_data" 
@@ -334,7 +334,7 @@ yearSeasonList2 <- data.table(merge(
 yearSeasonList2[year==2005 & season==4,sample_name:=55]
 yearSeasonList2[year==2002 & season==4,sample_name:=42]
 yearSeasonList2[year==2007 & season==4,sample_name:=63]
-
+yearSeasonList2[year==2015 & season==1,sample_name:=92]
 
 
 #get rid of ANY unsampled samples - if left in, 

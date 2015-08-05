@@ -9,5 +9,7 @@ setkey(sampleNames,drainage,sample_name)
 sampleNames<-sampleNames[!duplicated(sampleNames[,list(drainage,sample_name,season)])]
 sampleNames[season=="Fall_Winter",season:="Fall"]
 
+
+
 #save new version
 saveRDS(sampleNames,file.path(processedDir,"sampleNames.rds"))
