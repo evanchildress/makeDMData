@@ -1120,7 +1120,7 @@ if(modelType=='js'){
   lastObsRows <- c(firstObsRows[2:nFirstObsRows]-1,nrow(d))
   nLastObsRows <- length(lastObsRows)
   
-  evalRows <- d[,which(sampleNumAdj!=1)]
+  evalRows <- d[,which(!sampleNumAdj %in% 1:2)]
   nEvalRows <- length(evalRows)
   
   evalJSRows <- dMData[,which(ageInSamples != lastAIS)]
@@ -1279,8 +1279,8 @@ statsForN <- list(
 ##########################################################
 #For js model need indices to compute N
   if(modelType=='js'){
-      sampleRows<-array(NA,dim=c(20000,nSamples,nRivers))
-      nSampleRows<-array(NA,dim=c(nSamples,nRivers))
+        nSampleRows<-array(NA,dim=c(nSamples,nRivers))
+    sampleRows<-array(NA,dim=c(20000,nSamples,nRivers))
       for(r in 1:nRivers){
           for(s in 1:nSamples){
               rows<-d[,which(sampleNumAdj==s & riverN==r)]
@@ -1323,6 +1323,7 @@ print(str(dMData))
 }
 
 if(modelType=='js'){
+  d[sampleNumAdj==2 & zKnown %in% c(NA,2),zKnown:=1]
   save(dMData, evalList, d,
        file = paste("~/westbrookJS",fileName, sep='/'))
   save(dMData,evalList,d,
